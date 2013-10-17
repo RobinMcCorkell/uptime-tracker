@@ -155,7 +155,7 @@ function file_total_uptime {
 }
 #update uptime information in file
 function file_update_uptime {
-	uptimedir=`basename "$uptimefile"`
+	uptimedir=`dirname "$uptimefile"`
 	if [[ ! -d $uptimedir ]]; then
 		echo "WARNING: $uptimedir did not exist, creating" >&2
 		mkdir -p "$uptimedir"
