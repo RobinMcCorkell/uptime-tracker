@@ -11,3 +11,24 @@ This program tracks the uptime of a running Linux system, storing it in a file
 on disk. This program can also be used to parse that file, giving a detailed
 overview of the uptime of a system, along with the exact times of bootup and
 shutdown.
+
+Usage
+-----
+
+uptime-tracker.sh [options] command
+
+Options:
+  -n, --natural    output in full date format
+  -r, --raw        default, output in UNIX timestamp
+  -p, --percent    output downtime as percentage
+  --file=[file]    store uptime data in [file]
+
+Commands:
+  update        update uptime file with latest information
+  reset         clear downtime data and restart uptime counter
+  auto [n]      run forever, updating automatically every [n] seconds
+  start-time    return first recorded boot time
+  downtime      return downtime since first recorded boot
+  uptime        return uptime since first recorded boot
+  all-data      return array of boottime,shutdowntime separated by newline
+  summary       return table of all information, in a human readable format
