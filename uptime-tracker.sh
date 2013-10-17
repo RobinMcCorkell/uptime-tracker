@@ -21,39 +21,6 @@
 #IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 #CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-#####################
-#function definitions
-#####################
-
-#_check_file			check if file exists and is not empty
-#_no_data				error handling
-#_to_date				convert UNIX timestamp to dd/mm/yyyy hh:mm:ss
-#_conv_time				convert seconds to full time
-#_calc_percentage		calculate percentage of $1 / $2 to 4 decimal places
-
-#file_session_boottime	get boot time for session $1
-#file_session_endtime	get time at end of session $1
-#file_session_uptime	get uptime for session $1
-#file_session_count		get number of sessions in file
-#file_total_time		get time between first recorded boot and last update
-#file_total_uptime		get total recorded uptime
-#file_update_uptime		update uptime information in file
-
-#session_uptime			get uptime of this session
-#session_boottime		get boot time of this session
-
-#output_downtime		output total downtime
-#output_uptime			output total uptime
-#output_all_data		output all recorded data
-#output_start_time		output first recorded boot time
-#output_summary_table	output summary data
-
-#display_help			output help
-
-#parse_options			parse options
-#parse_command			parse command
-#parse_other			parse other options
-
 version="2.7"
 
 uptimefile="/var/spool/uptime-tracker/records"
@@ -62,13 +29,13 @@ outputformat="d"
 otherparams=""
 optionhelp=false
 
-##################
-#primary functions
-##################
+###################
+#Utilites
+###################
 
 #check if file exists and is not empty
 function _check_file {
-	if [ ! -s "$uptimefile" ]; then
+	if [[ ! -s $uptimefile ]];  then
 		false
 	else
 		true
@@ -79,22 +46,11 @@ function _check_file {
 function _no_data {
 	echo "No data found" >&2
 }
-#get boot time for session $1
-function file_session_boottime {
-	if [ "$1" ]; then
-		echo `sed "$(( ($1 * 2) -  1 ))q;d" "$uptimefile"`
-	fi
-}
-#get uptime for session $1
-function file_session_uptime {
-	if [ "$1" ]; then
-		echo `sed "$(( $1 * 2 ))q;d" "$uptimefile"`
-	fi
-}
-#number of sessions in file
-function file_session_count {
-	echo $(( $(wc -l "$uptimefile" | cut -d " " -f 1) / 2 ))
-}
+
+###################
+#Formatting
+###################
+
 #convert UNIX timestamp to dd/mm/yyyy hh:mm:ss
 function _to_date {
 	date --date="@$1" "+%d/%m/%Y %T"
@@ -102,17 +58,12 @@ function _to_date {
 #convert seconds to full time
 function _conv_time {
 	_conv_time_format=""
-	if [ "$2" = "s" ]; then
+	if [[ $2 == "s" ]];  then
 		_conv_time_format="%dd, %02dh, %02dm, %02ds"
 	else
 		_conv_time_format="%d days, %02d hours, %02d minutes, %02d seconds"
 	fi
 	printf "${_conv_time_format}\n" $(( $1 / 86400 )) $(( $1 / 3600 % 24 )) $(( $1 / 60 % 60 )) $(( $1 % 60 ))
-}
-#get current uptime of this session
-function session_uptime {
-	session_uptime_local=`cut -d " " -f 1 /proc/uptime`
-	echo ${session_uptime_local%.*}
 }
 #calculate percentage to 4 decimal places
 function _calc_percentage {
@@ -123,23 +74,8 @@ function _pad {
 	printf "%-${2}s" "$1"
 }
 
-
-####################
-#secondary functions
-####################
-
-#get time at end of session $1
-function file_session_endtime {
-	if [ "$1" ]; then
-		echo $(( `file_session_boottime $1` + `file_session_uptime $1` ))
-	fi
-}
-#get boot time of this session
-function session_boottime {
-	echo $(( `date +%s` - `session_uptime` ))
-}
 #convert a date according to set options
-function conv_date_opt {
+function _conv_date_opt {
 	case "$outputformat" in
 	n)
 		_to_date "$1"
@@ -150,7 +86,7 @@ function conv_date_opt {
 	esac
 }
 #convert a time according to set options
-function conv_time_opt {
+function _conv_time_opt {
 	case "$outputformat" in
 	p)
 		if [[ $2 =~ ^[0-9]*+$ ]]; then
@@ -168,46 +104,81 @@ function conv_time_opt {
 	esac
 }
 
+###################
+#Session
+###################
+
+#get current uptime of this session
+function session_uptime {
+	session_uptime_local=$(cut -d " " -f 1 /proc/uptime)
+	echo ${session_uptime_local%.*}
+}
+#get boot time of this session
+function session_boottime {
+	echo $(( $(date +%s) - $(session_uptime) ))
+}
 
 ###################
-#tertiary functions
+#File
 ###################
 
+#get boot time for session $1
+function file_session_boottime {
+	if [[ $1 ]];  then
+		echo $(sed "$(( ($1 * 2) -  1 ))q;d" "$uptimefile")
+	fi
+}
+#get uptime for session $1
+function file_session_uptime {
+	if [[ $1 ]];  then
+		echo $(sed "$(( $1 * 2 ))q;d" "$uptimefile")
+	fi
+}
+#number of sessions in file
+function file_session_count {
+	echo $(( $(wc -l "$uptimefile" | cut -d " " -f 1) / 2 ))
+}
+#get time at end of session $1
+function file_session_endtime {
+	if [[ $1 ]];  then
+		echo $(( $(file_session_boottime $1) + $(file_session_uptime $1) ))
+	fi
+}
 #get time between first recorded boot and last update
 function file_total_time {
-	echo $(( `file_session_endtime $(file_session_count)` - `file_session_boottime 1` ))
+	echo $(( $(file_session_endtime $(file_session_count)) - $(file_session_boottime 1) ))
 }
 #get total reported uptime
 function file_total_uptime {
 	file_total_uptime_entries=$(file_session_count)
-	file_total_uptime_uptime=`file_session_uptime $(file_session_count)`
+	file_total_uptime_uptime=$(file_session_uptime $(file_session_count))
 	for (( i = 1; i < $file_total_uptime_entries; ++i )); do
-		(( file_total_uptime_uptime += `file_session_uptime $i` ))
+		(( file_total_uptime_uptime += $(file_session_uptime $i) ))
 	done
 	echo $file_total_uptime_uptime
 }
 #update uptime information in file
 function file_update_uptime {
-	uptimedir=`dirname "$uptimefile"`
+	uptimedir=$(dirname "$uptimefile")
 	if [[ ! -d $uptimedir ]]; then
 		echo "WARNING: $uptimedir did not exist, creating" >&2
 		mkdir -p "$uptimedir"
 	fi
-	file_update_uptime_uptime=`session_uptime`
-	file_update_uptime_time=`date +%s`
+	file_update_uptime_uptime=$(session_uptime)
+	file_update_uptime_time=$(date +%s)
 	function append_new {
-		echo `session_boottime` >> "$uptimefile"
+		echo $(session_boottime) >> "$uptimefile"
 		echo $file_update_uptime_uptime >> "$uptimefile"
 	}
 	function update_last {
-		file_update_uptime_uptime=$(( $file_update_uptime_time - `file_session_boottime $(file_session_count)` ))
+		file_update_uptime_uptime=$(( $file_update_uptime_time - $(file_session_boottime $(file_session_count)) ))
 		sed -i "\$s/.*/$file_update_uptime_uptime/" "$uptimefile"
 	}
 	
 	if ! _check_file ; then
 		append_new
 	else
-		if [ `session_boottime` -lt `file_session_endtime $(file_session_count)` ]; then
+		if [[ $(session_boottime) -lt $(file_session_endtime $(file_session_count)) ]];  then
 			update_last
 		else
 			append_new
@@ -215,17 +186,18 @@ function file_update_uptime {
 	fi
 }
 
-#################
-#output functions
-#################
+###################
+#Output
+###################
+
 #output downtime
 function output_downtime {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
 		output_downtime_totaltime=$(file_total_time)
-		output_downtime_totaldowntime=$(( $output_downtime_totaltime - `file_total_uptime` ))
-		conv_time_opt $output_downtime_totaldowntime $output_downtime_totaltime
+		output_downtime_totaldowntime=$(( $output_downtime_totaltime - $(file_total_uptime) ))
+		_conv_time_opt $output_downtime_totaldowntime $output_downtime_totaltime
 	else
 		_no_data
 		exit 3
@@ -238,7 +210,7 @@ function output_uptime {
 	if _check_file; then
 		output_uptime_totaltime=$(file_total_time)
 		output_uptime_totaluptime=$(file_total_uptime)
-		conv_time_opt $output_uptime_totaluptime $output_uptime_totaltime
+		_conv_time_opt $output_uptime_totaluptime $output_uptime_totaltime
 	else
 		_no_data
 		exit 3
@@ -251,11 +223,11 @@ function output_all_data {
 	if _check_file; then
 		output_all_data_entry_count=$(file_session_count)
 		for (( i = 1; i < $output_all_data_entry_count; ++i)); do
-			output_all_data_boot=`file_session_boottime $i`
-			output_all_data_down=`file_session_endtime $i`
+			output_all_data_boot=$(file_session_boottime $i)
+			output_all_data_down=$(file_session_endtime $i)
 			echo "$output_all_data_boot,$output_all_data_down"
 		done
-		output_all_data_boot=`file_session_boottime $i`
+		output_all_data_boot=$(file_session_boottime $i)
 		echo $output_all_data_boot
 	else
 		_no_data
@@ -267,8 +239,8 @@ function output_start_time {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_start_time_starttime=`file_session_boottime 1`
-		conv_date_opt $output_start_time_starttime
+		output_start_time_starttime=$(file_session_boottime 1)
+		_conv_date_opt $output_start_time_starttime
 	else
 		_no_data
 		exit 3
@@ -280,7 +252,7 @@ function display_help {
 	echo "Copyright (c) 2012-2013 Robin McCorkell" >&2
 	echo >&2
 	echo "Data file is: $uptimefile" >&2
-	echo "Session boot time is: `_to_date $(session_boottime)`" >&2
+	echo "Session boot time is: $(_to_date $(session_boottime))" >&2
 	echo "Usage: $0 [options] command" >&2
 	echo >&2
 	echo "Options: " >&2
@@ -301,18 +273,18 @@ function display_help {
 }
 #output full data table
 function output_summary_table {
-	output_summary_table_entry_count=`file_session_count`
+	output_summary_table_entry_count=$(file_session_count)
 	for (( i = 1; i < $output_summary_table_entry_count; ++i )); do
-		echo -e " $(_pad $i $1)   $(_pad "$(conv_date_opt $(file_session_boottime $i))" $2)   $(_pad "$(conv_date_opt $(file_session_endtime $i))" $2)   $(conv_time_opt $(file_session_uptime $i) s)"
+		echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $(file_session_boottime $i))" $2)   $(_pad "$(_conv_date_opt $(file_session_endtime $i))" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
 	done
-	echo -e " $(_pad cur $1)   $(_pad "$(conv_date_opt $(file_session_boottime $i))" $2)   $(_pad "" $2)   $(conv_time_opt $(file_session_uptime $i) s)"
+	echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $(file_session_boottime $i))" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
 }
 
-##################
-#parsing functions
-##################
+###################
+#Parsing
+###################
 function parse_options {
-	if [ ${1:0:1} = "-" ]; then
+	if [[ ${1:0:1} == "-" ]];  then
 		case "${1:1}" in
 		help)
 			optionhelp=true
@@ -328,7 +300,7 @@ function parse_options {
 			;;
 		file=*)
 			parse_options_file=${1:6}
-			if [ ! "$parse_options_file" ]; then
+			if [[ ! $parse_options_file ]];  then
 				echo "ERROR: No file specified" >&2
 				exit 2
 			fi
@@ -355,18 +327,18 @@ function parse_command {
 	command=$1
 }
 function parse_other {
-	if [ $otherparams ]; then otherparams="$otherparams $1"
+	if [[ $otherparams ]]; then otherparams="$otherparams $1"
 	else otherparams="$1"; fi
 }
 
-#################
-#argument parsing
-#################
+###################
+#Arguments
+###################
 for arg in "$@"; do
-	if [ ${arg:0:1} = "-" ]; then
+	if [[ $arg == -* ]];  then
 		parse_options "${arg:1}"
 	else
-		if [ ! "$command" ]; then
+		if [[ ! $command ]];  then
 			parse_command "$arg"
 		else
 			parse_other "$arg"
@@ -380,12 +352,12 @@ if $optionhelp; then
 fi
 
 ###################
-#command processing
+#Command Processing
 ###################
 case "$command" in
-debug-command)
-	eval "$otherparams"
-	;;
+#debug-command)
+#	eval "$otherparams"
+#	;;
 update)
 	file_update_uptime
 	;;
@@ -406,8 +378,8 @@ reset)
 	file_update_uptime
 	;;
 auto)
-	interval=`echo "$otherparams" | sed "s/.* \([^ ]*\)\$/\1/"`
-	if [ "$interval" -gt 0 ]; then
+	interval=$(echo "$otherparams" | sed "s/.* \([^ ]*\)\$/\1/")
+	if (( interval > 0 ));  then
 		while true; do
 			file_update_uptime
 			sleep $interval
@@ -432,7 +404,7 @@ summary)
 		echo -e " $(_pad id $id_width) | $(_pad 'boot time' $time_width) | $(_pad 'shutdown time' $time_width) | uptime"
 		output_summary_table $id_width $time_width
 		echo
-		echo "First boot: `conv_date_opt $(file_session_boottime 1)`"
+		echo "First boot: $(_conv_date_opt $(file_session_boottime 1))"
 		echo "    Uptime: $(output_uptime) - $(output_uptime p)%"
 		echo "  Downtime: $(output_downtime) - $(output_downtime p)%"
 	else
