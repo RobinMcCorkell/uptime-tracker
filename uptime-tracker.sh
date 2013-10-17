@@ -77,7 +77,7 @@ function _check_file {
 }
 #error handling
 function _no_data {
-	echo "No data found!"
+	echo "No data found" >&2
 }
 #get boot time for session $1
 function file_session_boottime {
@@ -203,6 +203,7 @@ function output_downtime {
 		esac
 	else
 		_no_data
+		exit 3
 	fi
 }
 #output uptime
@@ -223,6 +224,7 @@ function output_uptime {
 		esac
 	else
 		_no_data
+		exit 3
 	fi
 }
 #output all data
@@ -243,44 +245,50 @@ function output_all_data {
 		echo $output_all_data_boot
 	else
 		_no_data
+		exit 3
 	fi
 }
 #output first boot time
 function output_start_time {
-	output_start_time_starttime=`file_session_boottime 1`
-	case "$1" in
-	n)
-		_to_date "$output_start_time_starttime"
-		;;
-	*)
-		echo "$output_start_time_starttime"
-		;;
-	esac
+	if _check_file; then
+		output_start_time_starttime=`file_session_boottime 1`
+		case "$1" in
+		n)
+			_to_date "$output_start_time_starttime"
+			;;
+		*)
+			echo "$output_start_time_starttime"
+			;;
+		esac
+	else
+		_no_data
+		exit 3
+	fi
 }
 #output help
 function display_help {
-	echo "Uptime Tracker v$version"
-	echo "Copyright (c) 2012-2013 Robin McCorkell"
-	echo
-	echo "Data file is: $uptimefile"
-	echo "Session boot time is: `_to_date $(session_boottime)`"
-	echo "Usage: $0 [options] command"
-	echo
-	echo "Options: "
-	echo -e "  -n, --natural\t\toutput in full date format"
-	echo -e "  -r, --raw\t\tdefault, output in UNIX timestamp"
-	echo -e "  -p, --percent\t\toutput downtime as percentage"
-	echo -e "      --file=[file]\tstore uptime data in [file]"
-	echo
-	echo "Commands:"
-	echo -e "  update\tupdate uptime file with latest information"
-	echo -e "  reset\t\tclear downtime data and restart uptime counter"
-	echo -e "  auto [n]\trun forever, updating automatically every [n] seconds"
-	echo -e "  start-time\treturn first recorded boot time"
-	echo -e "  downtime\treturn downtime since first recorded boot"
-	echo -e "  uptime\treturn uptime since first recorded boot"
-	echo -e "  all-data\treturn array of boottime,shutdowntime separated by newline"
-	echo -e "  summary\treturn table of all information, in a human readable format"
+	echo "Uptime Tracker v$version" >&2
+	echo "Copyright (c) 2012-2013 Robin McCorkell" >&2
+	echo >&2
+	echo "Data file is: $uptimefile" >&2
+	echo "Session boot time is: `_to_date $(session_boottime)`" >&2
+	echo "Usage: $0 [options] command" >&2
+	echo >&2
+	echo "Options: " >&2
+	echo -e "  -n, --natural\t\toutput in full date format" >&2
+	echo -e "  -r, --raw\t\tdefault, output in UNIX timestamp" >&2
+	echo -e "  -p, --percent\t\toutput downtime as percentage" >&2
+	echo -e "      --file=[file]\tstore uptime data in [file]" >&2
+	echo >&2
+	echo "Commands:" >&2
+	echo -e "  update\tupdate uptime file with latest information" >&2
+	echo -e "  reset\t\tclear downtime data and restart uptime counter" >&2
+	echo -e "  auto [n]\trun forever, updating automatically every [n] seconds" >&2
+	echo -e "  start-time\treturn first recorded boot time" >&2
+	echo -e "  downtime\treturn downtime since first recorded boot" >&2
+	echo -e "  uptime\treturn uptime since first recorded boot" >&2
+	echo -e "  all-data\treturn array of boottime,shutdowntime separated by newline" >&2
+	echo -e "  summary\treturn table of all information, in a human readable format" >&2
 }
 #output full data table
 function output_summary_table {
@@ -312,8 +320,8 @@ function parse_options {
 		file*)
 			parse_options_file=${1:6}
 			if [ ! "$parse_options_file" ]; then
-				echo "No file specified!"
-				exit
+				echo "ERROR: No file specified" >&2
+				exit 2
 			fi
 			uptimefile="$parse_options_file"
 			;;
@@ -357,7 +365,10 @@ for arg in "$@"; do
 	fi
 done
 
-$optionhelp && display_help && exit
+if $optionhelp; then
+	display_help
+	exit 1
+fi
 
 ###################
 #command processing
@@ -393,18 +404,25 @@ auto)
 			sleep $interval
 		done
 	else
-		echo "Invalid interval specified - $interval"
+		echo "ERROR: Invalid interval specified - $interval" >&2
+		exit 2
 	fi
 	;;
 summary)
-	echo -e " id\t| boot time\t\t| shutdown time\t\t| uptime"
-	output_summary_table
-	echo
-	echo "First boot: `_to_date $(file_session_boottime 1)`"
-	echo "    Uptime: $(output_uptime n) - $(output_uptime p)%"
-	echo "  Downtime: $(output_downtime n) - $(output_downtime p)%"
+	if _check_file; then
+		echo -e " id\t| boot time\t\t| shutdown time\t\t| uptime"
+		output_summary_table
+		echo
+		echo "First boot: `_to_date $(file_session_boottime 1)`"
+		echo "    Uptime: $(output_uptime n) - $(output_uptime p)%"
+		echo "  Downtime: $(output_downtime n) - $(output_downtime p)%"
+	else
+		_no_data
+		exit 3
+	fi
 	;;
 *)
-	echo "Invalid command $command - try --help"
+	echo "ERROR: Invalid command $command - try --help" >&2
+	exit 2
 	;;
 esac
