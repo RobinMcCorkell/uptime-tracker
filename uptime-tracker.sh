@@ -460,9 +460,9 @@ summary)
 		echo -e " $(_pad id $id_width) | $(_pad 'boot time' $time_width) | $(_pad 'shutdown time' $time_width) | uptime"
 		output_summary_table $id_width $time_width
 		echo
-		echo "First boot: $(_conv_date_opt $(file_session_boottime 1))"
-		echo "    Uptime: $(output_uptime) - $(output_uptime p)%"
-		echo "  Downtime: $(output_downtime) - $(output_downtime p)%"
+		echo "Last update: $(output_end_time)"
+		echo "     Uptime: $(output_uptime) - $(output_uptime p)%"
+		echo "   Downtime: $(output_downtime) - $(output_downtime p)%"
 	else
 		_no_data
 		exit 3
