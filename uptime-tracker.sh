@@ -28,6 +28,8 @@ command=""
 outputformat="d"
 otherparams=""
 optionhelp=false
+timestart="d"
+timeend="d"
 
 ###################
 #Utilites
@@ -148,12 +150,18 @@ function file_session_endtime {
 function file_total_time {
 	echo $(( $(file_session_endtime $(file_session_count)) - $(file_session_boottime 1) ))
 }
-#get total reported uptime
+#get total reported uptime between limits
 function file_total_uptime {
 	file_total_uptime_entries=$(file_session_count)
-	file_total_uptime_uptime=$(file_session_uptime $(file_session_count))
-	for (( i = 1; i < $file_total_uptime_entries; ++i )); do
-		(( file_total_uptime_uptime += $(file_session_uptime $i) ))
+	file_total_uptime_uptime=0
+	for (( i = $file_total_uptime_entries; i > 0; --i )); do
+		file_total_uptime_boottime=$(file_session_boottime $i)
+		file_total_uptime_endtime=$(file_session_endtime $i)
+		if (( file_total_uptime_endtime < timestart )); then
+			break
+		elif (( file_total_uptime_boottime < timeend )); then
+			(( file_total_uptime_uptime += ( (file_total_uptime_endtime<timeend?file_total_uptime_endtime:timeend) - (file_total_uptime_boottime>timestart?file_total_uptime_boottime:timestart) ) ))
+		fi
 	done
 	echo $file_total_uptime_uptime
 }
@@ -174,7 +182,7 @@ function file_update_uptime {
 		file_update_uptime_uptime=$(( $file_update_uptime_time - $(file_session_boottime $(file_session_count)) ))
 		sed -i "\$s/.*/$file_update_uptime_uptime/" "$uptimefile"
 	}
-	
+
 	if ! _check_file ; then
 		append_new
 	else
@@ -195,7 +203,7 @@ function output_downtime {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_downtime_totaltime=$(file_total_time)
+		output_downtime_totaltime=$(( timeend - timestart ))
 		output_downtime_totaldowntime=$(( $output_downtime_totaltime - $(file_total_uptime) ))
 		_conv_time_opt $output_downtime_totaldowntime $output_downtime_totaltime
 	else
@@ -208,7 +216,7 @@ function output_uptime {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_uptime_totaltime=$(file_total_time)
+		output_uptime_totaltime=$(( timeend - timestart ))
 		output_uptime_totaluptime=$(file_total_uptime)
 		_conv_time_opt $output_uptime_totaluptime $output_uptime_totaltime
 	else
@@ -225,10 +233,15 @@ function output_all_data {
 		for (( i = 1; i < $output_all_data_entry_count; ++i)); do
 			output_all_data_boot=$(file_session_boottime $i)
 			output_all_data_down=$(file_session_endtime $i)
-			echo "$output_all_data_boot,$output_all_data_down"
+			(( output_all_data_boot < timeend )) || return
+			if (( output_all_data_down > timestart )); then
+				echo "$output_all_data_boot,$output_all_data_down"
+			fi
 		done
 		output_all_data_boot=$(file_session_boottime $i)
-		echo $output_all_data_boot
+		if (( output_all_data_boot < timeend )); then
+			echo $output_all_data_boot
+		fi
 	else
 		_no_data
 		exit 3
@@ -256,28 +269,38 @@ function display_help {
 	echo "Usage: $0 [options] command" >&2
 	echo >&2
 	echo "Options: " >&2
-	echo -e "  -n, --natural\t\toutput in full date format" >&2
-	echo -e "  -r, --raw\t\tdefault, output in UNIX timestamp" >&2
-	echo -e "  -p, --percent\t\toutput downtime as percentage" >&2
-	echo -e "      --file=[file]\tstore uptime data in [file]" >&2
+	echo "  -n, --natural            output in full date format" >&2
+	echo "  -r, --raw                default, output in UNIX timestamp" >&2
+	echo "  -p, --percent            output downtime as percentage" >&2
+	echo "      --file=[file]        store uptime data in [file]" >&2
+	echo "      --time-start=[time]  only use entries newer than [time]" >&2
+	echo "      --time-end=[time]    only use entries older than [time]" >&2
 	echo >&2
 	echo "Commands:" >&2
-	echo -e "  update\tupdate uptime file with latest information" >&2
-	echo -e "  reset\t\tclear downtime data and restart uptime counter" >&2
-	echo -e "  auto [n]\trun forever, updating automatically every [n] seconds" >&2
-	echo -e "  start-time\treturn first recorded boot time" >&2
-	echo -e "  downtime\treturn downtime since first recorded boot" >&2
-	echo -e "  uptime\treturn uptime since first recorded boot" >&2
-	echo -e "  all-data\treturn array of boottime,shutdowntime separated by newline" >&2
-	echo -e "  summary\treturn table of all information, in a human readable format" >&2
+	echo "  update          update uptime file with latest information" >&2
+	echo "  reset           clear downtime data and restart uptime counter" >&2
+	echo "  auto [n]        run forever, updating automatically every [n] seconds" >&2
+	echo "  start-time      return first recorded boot time" >&2
+	echo "  downtime        return downtime since first recorded boot" >&2
+	echo "  uptime          return uptime since first recorded boot" >&2
+	echo "  all-data        return array of boottime,shutdowntime separated by newline" >&2
+	echo "  summary         return table of all information, in a human readable format" >&2
 }
 #output full data table
 function output_summary_table {
 	output_summary_table_entry_count=$(file_session_count)
 	for (( i = 1; i < $output_summary_table_entry_count; ++i )); do
-		echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $(file_session_boottime $i))" $2)   $(_pad "$(_conv_date_opt $(file_session_endtime $i))" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+		output_summary_table_boottime=$(file_session_boottime $i)
+		output_summary_table_endtime=$(file_session_endtime $i)
+		(( output_summary_table_boottime < timeend )) || return
+		if (( output_summary_table_endtime > timestart )); then
+			echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $output_summary_table_boottime)" $2)   $(_pad "$(_conv_date_opt $output_summary_table_endtime)" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+		fi
 	done
-	echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $(file_session_boottime $i))" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+	output_summary_table_boottime=$(file_session_boottime $i)
+	if (( output_summary_table_boottime < timeend )); then
+		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $output_summary_table_boottime)" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+	fi
 }
 
 ###################
@@ -305,6 +328,24 @@ function parse_options {
 				exit 2
 			fi
 			uptimefile="$parse_options_file"
+			;;
+		time-start=*)
+			parse_options_time_start=${1:12}
+			parse_options_now=$(date +%s)
+			if [[ ! $parse_options_time_start =~ ^[0-9]+$ ]] || (( parse_options_time_start >= parse_options_now )); then
+				echo "ERROR: Invalid time-start" >&2
+				exit 2
+			fi
+			timestart=$parse_options_time_start
+			;;
+		time-end=*)
+			parse_options_time_end=${1:10}
+			parse_options_now=$(date +%s)
+			if [[ ! $parse_options_time_end =~ ^[0-9]+$ ]] || (( parse_options_time_end >= parse_options_now )) || (( parse_options_time_end <= timestart )); then
+				echo "ERROR: Invalid time-end" >&2
+				exit 2
+			fi
+			timeend=$parse_options_time_end
 			;;
 		esac
 	else
@@ -350,6 +391,10 @@ if $optionhelp; then
 	display_help
 	exit 1
 fi
+
+#Set some defaults
+[[ $timestart == "d" ]] && timestart=$(file_session_boottime 1)
+[[ $timeend == "d" ]] && timeend=$(file_session_endtime $(file_session_count))
 
 ###################
 #Command Processing
