@@ -24,6 +24,7 @@
 version="2.7"
 
 uptimefile="/var/spool/uptime-tracker/records"
+filecontents=""
 command=""
 outputformat="d"
 otherparams=""
@@ -127,18 +128,18 @@ function session_boottime {
 #get boot time for session $1
 function file_session_boottime {
 	if [[ $1 ]];  then
-		echo $(sed "$(( ($1 * 2) -  1 ))q;d" "$uptimefile")
+		echo $(sed "$(( ($1 * 2) -  1 ))q;d" <<< "$filecontents")
 	fi
 }
 #get uptime for session $1
 function file_session_uptime {
 	if [[ $1 ]];  then
-		echo $(sed "$(( $1 * 2 ))q;d" "$uptimefile")
+		echo $(sed "$(( $1 * 2 ))q;d" <<< "$filecontents")
 	fi
 }
 #number of sessions in file
 function file_session_count {
-	echo $(( $(wc -l "$uptimefile" | cut -d " " -f 1) / 2 ))
+	echo $(( $(wc -l <<< "$filecontents") / 2 ))
 }
 #get time at end of session $1
 function file_session_endtime {
@@ -179,6 +180,7 @@ function file_update_uptime {
 		echo $(session_boottime) >> "$uptimefile"
 		echo $uptime >> "$uptimefile"
 	else
+		file_prepare
 		if [[ $(session_boottime) -lt $(file_session_endtime $(file_session_count)) ]];  then
 			uptime=$(( $now - $(file_session_boottime $(file_session_count)) ))
 			sed -i "\$s/.*/$uptime/" "$uptimefile"
@@ -187,6 +189,19 @@ function file_update_uptime {
 			echo $uptime >> "$uptimefile"
 		fi
 	fi
+}
+#read the file and set some defaults
+function file_prepare {
+	#Read the file
+	if ! _check_file; then
+		_no_data
+		exit 3
+	fi
+	filecontents=$(< "$uptimefile")
+
+	#Set some defaults
+	[[ $timestart == "d" ]] && timestart=$(file_session_boottime 1)
+	[[ $timeend == "d" ]] && timeend=$(file_session_endtime $(file_session_count))
 }
 
 ###################
@@ -400,10 +415,6 @@ if $optionhelp; then
 	exit 1
 fi
 
-#Set some defaults
-[[ $timestart == "d" ]] && timestart=$(file_session_boottime 1)
-[[ $timeend == "d" ]] && timeend=$(file_session_endtime $(file_session_count))
-
 ###################
 #Command Processing
 ###################
@@ -415,18 +426,23 @@ update)
 	file_update_uptime
 	;;
 start-time)
+	file_prepare
 	output_start_time
 	;;
 end-time)
+	file_prepare
 	output_end_time
 	;;
 downtime)
+	file_prepare
 	output_downtime
 	;;
 uptime)
+	file_prepare
 	output_uptime
 	;;
 all-data)
+	file_prepare
 	output_all_data
 	;;
 reset)
@@ -446,6 +462,7 @@ auto)
 	fi
 	;;
 summary)
+	file_prepare
 	case "$outputformat" in
 	p)
 		outputformat="r"
