@@ -59,13 +59,13 @@ function _to_date {
 }
 #convert seconds to full time
 function _conv_time {
-	_conv_time_format=""
+	local format=""
 	if [[ $2 == "s" ]];  then
-		_conv_time_format="%dd, %02dh, %02dm, %02ds"
+		format="%dd, %02dh, %02dm, %02ds"
 	else
-		_conv_time_format="%d days, %02d hours, %02d minutes, %02d seconds"
+		format="%d days, %02d hours, %02d minutes, %02d seconds"
 	fi
-	printf "${_conv_time_format}\n" $(( $1 / 86400 )) $(( $1 / 3600 % 24 )) $(( $1 / 60 % 60 )) $(( $1 % 60 ))
+	printf "${format}\n" $(( $1 / 86400 )) $(( $1 / 3600 % 24 )) $(( $1 / 60 % 60 )) $(( $1 % 60 ))
 }
 #calculate percentage to 4 decimal places
 function _calc_percentage {
@@ -112,8 +112,8 @@ function _conv_time_opt {
 
 #get current uptime of this session
 function session_uptime {
-	session_uptime_local=$(cut -d " " -f 1 /proc/uptime)
-	echo ${session_uptime_local%.*}
+	local uptime=$(cut -d " " -f 1 /proc/uptime)
+	echo ${uptime%.*}
 }
 #get boot time of this session
 function session_boottime {
@@ -152,44 +152,39 @@ function file_total_time {
 }
 #get total reported uptime between limits
 function file_total_uptime {
-	file_total_uptime_entries=$(file_session_count)
-	file_total_uptime_uptime=0
-	for (( i = $file_total_uptime_entries; i > 0; --i )); do
-		file_total_uptime_boottime=$(file_session_boottime $i)
-		file_total_uptime_endtime=$(file_session_endtime $i)
-		if (( file_total_uptime_endtime < timestart )); then
+	local entries=$(file_session_count)
+	local uptime=0
+	for (( i = $entries; i > 0; --i )); do
+		local boottime=$(file_session_boottime $i)
+		local endtime=$(file_session_endtime $i)
+		if (( endtime < timestart )); then
 			break
-		elif (( file_total_uptime_boottime < timeend )); then
-			(( file_total_uptime_uptime += ( (file_total_uptime_endtime<timeend?file_total_uptime_endtime:timeend) - (file_total_uptime_boottime>timestart?file_total_uptime_boottime:timestart) ) ))
+		elif (( boottime < timeend )); then
+			(( uptime += ( (endtime<timeend?endtime:timeend) - (boottime>timestart?boottime:timestart) ) ))
 		fi
 	done
-	echo $file_total_uptime_uptime
+	echo $uptime
 }
 #update uptime information in file
 function file_update_uptime {
-	uptimedir=$(dirname "$uptimefile")
+	local uptimedir=$(dirname "$uptimefile")
 	if [[ ! -d $uptimedir ]]; then
 		echo "WARNING: $uptimedir did not exist, creating" >&2
 		mkdir -p "$uptimedir"
 	fi
-	file_update_uptime_uptime=$(session_uptime)
-	file_update_uptime_time=$(date +%s)
-	function append_new {
-		echo $(session_boottime) >> "$uptimefile"
-		echo $file_update_uptime_uptime >> "$uptimefile"
-	}
-	function update_last {
-		file_update_uptime_uptime=$(( $file_update_uptime_time - $(file_session_boottime $(file_session_count)) ))
-		sed -i "\$s/.*/$file_update_uptime_uptime/" "$uptimefile"
-	}
+	local uptime=$(session_uptime)
+	local now=$(date +%s)
 
 	if ! _check_file ; then
-		append_new
+		echo $(session_boottime) >> "$uptimefile"
+		echo $uptime >> "$uptimefile"
 	else
 		if [[ $(session_boottime) -lt $(file_session_endtime $(file_session_count)) ]];  then
-			update_last
+			uptime=$(( $now - $(file_session_boottime $(file_session_count)) ))
+			sed -i "\$s/.*/$uptime/" "$uptimefile"
 		else
-			append_new
+			echo $(session_boottime) >> "$uptimefile"
+			echo $uptime >> "$uptimefile"
 		fi
 	fi
 }
@@ -203,9 +198,9 @@ function output_downtime {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_downtime_totaltime=$(( timeend - timestart ))
-		output_downtime_totaldowntime=$(( $output_downtime_totaltime - $(file_total_uptime) ))
-		_conv_time_opt $output_downtime_totaldowntime $output_downtime_totaltime
+		local totaltime=$(( timeend - timestart ))
+		local totaldowntime=$(( $totaltime - $(file_total_uptime) ))
+		_conv_time_opt $totaldowntime $totaltime
 	else
 		_no_data
 		exit 3
@@ -216,9 +211,9 @@ function output_uptime {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_uptime_totaltime=$(( timeend - timestart ))
-		output_uptime_totaluptime=$(file_total_uptime)
-		_conv_time_opt $output_uptime_totaluptime $output_uptime_totaltime
+		local totaltime=$(( timeend - timestart ))
+		local totaluptime=$(file_total_uptime)
+		_conv_time_opt $totaluptime $totaltime
 	else
 		_no_data
 		exit 3
@@ -229,18 +224,18 @@ function output_all_data {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_all_data_entry_count=$(file_session_count)
-		for (( i = 1; i < $output_all_data_entry_count; ++i)); do
-			output_all_data_boot=$(file_session_boottime $i)
-			output_all_data_down=$(file_session_endtime $i)
-			(( output_all_data_boot < timeend )) || return
-			if (( output_all_data_down > timestart )); then
-				echo "$output_all_data_boot,$output_all_data_down"
+		local entry_count=$(file_session_count)
+		for (( i = 1; i < $entry_count; ++i)); do
+			local boottime=$(file_session_boottime $i)
+			local endtime=$(file_session_endtime $i)
+			(( boottime < timeend )) || return
+			if (( endtime > timestart )); then
+				echo "$boottime,$endtime"
 			fi
 		done
-		output_all_data_boot=$(file_session_boottime $i)
-		if (( output_all_data_boot < timeend )); then
-			echo $output_all_data_boot
+		boottime=$(file_session_boottime $i)
+		if (( boottime < timeend )); then
+			echo $boottime
 		fi
 	else
 		_no_data
@@ -252,8 +247,8 @@ function output_start_time {
 	local outputformat=$outputformat
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
-		output_start_time_starttime=$(file_session_boottime 1)
-		_conv_date_opt $output_start_time_starttime
+		local starttime=$(file_session_boottime 1)
+		_conv_date_opt $starttime
 	else
 		_no_data
 		exit 3
@@ -288,18 +283,18 @@ function display_help {
 }
 #output full data table
 function output_summary_table {
-	output_summary_table_entry_count=$(file_session_count)
-	for (( i = 1; i < $output_summary_table_entry_count; ++i )); do
-		output_summary_table_boottime=$(file_session_boottime $i)
-		output_summary_table_endtime=$(file_session_endtime $i)
-		(( output_summary_table_boottime < timeend )) || return
-		if (( output_summary_table_endtime > timestart )); then
-			echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $output_summary_table_boottime)" $2)   $(_pad "$(_conv_date_opt $output_summary_table_endtime)" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+	local entry_count=$(file_session_count)
+	for (( i = 1; i < $entry_count; ++i )); do
+		local boottime=$(file_session_boottime $i)
+		local endtime=$(file_session_endtime $i)
+		(( boottime < timeend )) || return
+		if (( endtime > timestart )); then
+			echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "$(_conv_date_opt $endtime)" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
 		fi
 	done
-	output_summary_table_boottime=$(file_session_boottime $i)
-	if (( output_summary_table_boottime < timeend )); then
-		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $output_summary_table_boottime)" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+	local boottime=$(file_session_boottime $i)
+	if (( boottime < timeend )); then
+		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
 	fi
 }
 
@@ -322,30 +317,30 @@ function parse_options {
 			outputformat="p"
 			;;
 		file=*)
-			parse_options_file=${1:6}
-			if [[ ! $parse_options_file ]];  then
+			local file=${1:6}
+			if [[ ! $file ]];  then
 				echo "ERROR: No file specified" >&2
 				exit 2
 			fi
-			uptimefile="$parse_options_file"
+			uptimefile="$file"
 			;;
 		time-start=*)
-			parse_options_time_start=${1:12}
-			parse_options_now=$(date +%s)
-			if [[ ! $parse_options_time_start =~ ^[0-9]+$ ]] || (( parse_options_time_start >= parse_options_now )); then
+			local time_start=${1:12}
+			local time_now=$(date +%s)
+			if [[ ! $time_start =~ ^[0-9]+$ ]] || (( time_start >= time_now )); then
 				echo "ERROR: Invalid time-start" >&2
 				exit 2
 			fi
-			timestart=$parse_options_time_start
+			timestart=$time_start
 			;;
 		time-end=*)
-			parse_options_time_end=${1:10}
-			parse_options_now=$(date +%s)
-			if [[ ! $parse_options_time_end =~ ^[0-9]+$ ]] || (( parse_options_time_end >= parse_options_now )) || (( parse_options_time_end <= timestart )); then
+			local time_end=${1:10}
+			local time_now=$(date +%s)
+			if [[ ! $time_end =~ ^[0-9]+$ ]] || (( time_end >= time_now )) || (( time_end <= timestart )); then
 				echo "ERROR: Invalid time-end" >&2
 				exit 2
 			fi
-			timeend=$parse_options_time_end
+			timeend=$time_end
 			;;
 		esac
 	else
@@ -419,7 +414,7 @@ all-data)
 	output_all_data
 	;;
 reset)
-	cat /dev/null > "$uptimefile"
+	> "$uptimefile"
 	file_update_uptime
 	;;
 auto)
