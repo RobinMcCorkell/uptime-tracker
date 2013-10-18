@@ -254,6 +254,18 @@ function output_start_time {
 		exit 3
 	fi
 }
+#output latest update time
+function output_end_time {
+	local outputformat=$outputformat
+	[[ $1 ]] && outputformat=$1
+	if _check_file; then
+		local endtime=$(file_session_endtime $(file_session_count))
+		_conv_date_opt $endtime
+	else
+		_no_data
+		exit 3
+	fi
+}
 #output help
 function display_help {
 	echo "Uptime Tracker v$version" >&2
@@ -276,6 +288,7 @@ function display_help {
 	echo "  reset           clear downtime data and restart uptime counter" >&2
 	echo "  auto [n]        run forever, updating automatically every [n] seconds" >&2
 	echo "  start-time      return first recorded boot time" >&2
+	echo "  end-time        return last recorded update time" >&2
 	echo "  downtime        return downtime since first recorded boot" >&2
 	echo "  uptime          return uptime since first recorded boot" >&2
 	echo "  all-data        return array of boottime,shutdowntime separated by newline" >&2
@@ -403,6 +416,9 @@ update)
 	;;
 start-time)
 	output_start_time
+	;;
+end-time)
+	output_end_time
 	;;
 downtime)
 	output_downtime

@@ -30,6 +30,7 @@ Usage
       reset           clear downtime data and restart uptime counter
       auto [n]        run forever, updating automatically every [n] seconds
       start-time      return first recorded boot time
+      end-time        return last recorded update time
       downtime        return downtime since first recorded boot
       uptime          return uptime since first recorded boot
       all-data        return array of boottime,shutdowntime separated by newline
