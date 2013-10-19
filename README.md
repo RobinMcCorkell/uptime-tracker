@@ -1,10 +1,10 @@
 Uptime Tracker
 ==============
 
-An uptime tracker for Linux systems
-Version 2.8
+An uptime tracker for Linux systems, version 2.8
 
 Copyright (c) 2012-2013 Robin McCorkell
+
 Licensed under the MIT License - see LICENSE
 
 This program tracks the uptime of a running Linux system, storing it in a file
