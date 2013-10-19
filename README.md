@@ -16,15 +16,15 @@ Usage
 -----
 
     Usage: $0 [options] command
-	
-    Options: 
+
+    Options:
       -n, --natural            output in full date format
       -r, --raw                default, output in UNIX timestamp
       -p, --percent            output downtime as percentage
           --file=[file]        store uptime data in [file]
           --time-start=[time]  only use entries newer than [time]
           --time-end=[time]    only use entries older than [time]
-	
+
     Commands:
       update          update uptime file with latest information
       reset           clear downtime data and restart uptime counter

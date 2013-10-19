@@ -29,6 +29,7 @@ command=""
 outputformat="d"
 otherparams=""
 optionhelp=false
+readoptions=true
 timestart="d"
 timeend="d"
 
@@ -370,6 +371,13 @@ function parse_options {
 			fi
 			timeend=$time_end
 			;;
+		"")
+			readoptions=false
+			;;
+		*)
+			echo "ERROR: Unknown option -$1" >&2
+			exit 2
+			;;
 		esac
 	else
 		for (( i=0; i<${#1}; ++i )); do
@@ -382,6 +390,10 @@ function parse_options {
 				;;
 			p)
 				outputformat="p"
+				;;
+			*)
+				echo "ERROR: Unknown option -${1:$i:1}" >&2
+				exit 2
 				;;
 			esac
 		done
@@ -399,7 +411,7 @@ function parse_other {
 #Arguments
 ###################
 for arg in "$@"; do
-	if [[ $arg == -* ]];  then
+	if [[ $arg == -* ]] && $readoptions;  then
 		parse_options "${arg:1}"
 	else
 		if [[ ! $command ]];  then
@@ -484,6 +496,10 @@ summary)
 		_no_data
 		exit 3
 	fi
+	;;
+"")
+	echo "ERROR: No command specified - try --help" >&2
+	exit 2
 	;;
 *)
 	echo "ERROR: Invalid command $command - try --help" >&2
