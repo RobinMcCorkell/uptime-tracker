@@ -21,7 +21,7 @@
 #IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 #CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-version="2.7"
+version="2.8"
 
 uptimefile="/var/spool/uptime-tracker/records"
 filecontents=""
@@ -75,7 +75,7 @@ function _calc_percentage {
 }
 #pad to width with spaces
 function _pad {
-	printf "%-${2}s" "$1"
+	printf "%-${2}s\n" "$1"
 }
 
 #convert a date according to set options
@@ -309,6 +309,7 @@ function display_help {
 	echo "  uptime          return uptime since first recorded boot" >&2
 	echo "  all-data        return array of boottime,shutdowntime separated by newline" >&2
 	echo "  summary         return table of all information, in a human readable format" >&2
+	echo "  state           print relative state changes (useful for graphing)" >&2
 }
 #output full data table
 function output_summary_table {
@@ -325,6 +326,37 @@ function output_summary_table {
 	if (( boottime < timeend )); then
 		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
 	fi
+}
+#output relative state lengths
+function output_state {
+	local entry_count=$(file_session_count)
+	local total_time=$((timeend - timestart))
+	local status_set=false
+	local offset=$timestart
+	for (( i = 1; i <= $entry_count; ++i )); do
+		local boottime=$(file_session_boottime $i)
+		local endtime=$(file_session_endtime $i)
+		if (( boottime > timestart )); then
+			if ! $status_set; then
+				echo "down"
+				status_set=true
+			fi
+			local boottime_mod=$(( (boottime<timeend?boottime:timeend) - offset ))
+			_conv_time_opt $boottime_mod $total_time
+			(( boottime < timeend )) || return
+			(( offset += boottime_mod ))
+		fi
+		if (( endtime > timestart )); then
+			if ! $status_set; then
+				echo "up"
+				status_set=true
+			fi
+			local endtime_mod=$(( (endtime<timeend?endtime:timeend) - offset ))
+			_conv_time_opt $endtime_mod $total_time
+			(( endtime < timeend )) || return
+			(( offset += endtime_mod ))
+		fi
+	done
 }
 
 ###################
@@ -496,6 +528,15 @@ summary)
 		_no_data
 		exit 3
 	fi
+	;;
+state)
+	file_prepare
+	case "$outputformat" in
+	n)
+		outputformat="r"
+		;;
+	esac
+	output_state
 	;;
 "")
 	echo "ERROR: No command specified - try --help" >&2

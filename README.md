@@ -2,7 +2,7 @@ Uptime Tracker
 ==============
 
 An uptime tracker for Linux systems
-Version 2.7
+Version 2.8
 
 Copyright (c) 2012-2013 Robin McCorkell
 Licensed under the MIT License - see LICENSE
@@ -35,3 +35,4 @@ Usage
       uptime          return uptime since first recorded boot
       all-data        return array of boottime,shutdowntime separated by newline
       summary         return table of all information, in a human readable format
+      state           print relative state changes (useful for graphing)
