@@ -135,7 +135,9 @@ function file_session_boottime {
 #get uptime for session $1
 function file_session_uptime {
 	if [[ $1 ]];  then
-		echo $(sed "$(( $1 * 2 ))q;d" <<< "$filecontents")
+		shopt -s extglob
+		local uptime=$(sed "$(( $1 * 2 ))q;d" <<< "$filecontents")
+		echo ${uptime%%*([^0-9])}
 	fi
 }
 #number of sessions in file
@@ -147,6 +149,17 @@ function file_session_endtime {
 	if [[ $1 ]];  then
 		echo $(( $(file_session_boottime $1) + $(file_session_uptime $1) ))
 	fi
+}
+#return true if session $1 had a power failure
+function file_session_failed {
+	local ret=false
+	if [[ $1 ]]; then
+		local uptime_line=$(sed "$(( $1 * 2 ))q;d" <<< "$filecontents")
+		if [[ ${uptime_line:$(( ${#uptime_line} - 1 )):1} == "*" ]]; then
+			ret=true
+		fi
+	fi
+	$ret
 }
 #get time between first recorded boot and last update
 function file_total_time {
@@ -190,6 +203,16 @@ function file_update_uptime {
 			echo $uptime >> "$uptimefile"
 		fi
 	fi
+}
+#set fail for the current session
+function file_fail_set {
+	if ! file_session_failed $(file_session_count); then
+		sed -i "\$s/\$/*/" "$uptimefile"
+	fi
+}
+#unset fail for the current session
+function file_fail_unset {
+	sed -i "\$s/.*/$(file_session_uptime $(file_session_count))/" "$uptimefile"
 }
 #read the file and set some defaults
 function file_prepare {
@@ -246,7 +269,9 @@ function output_all_data {
 			local endtime=$(file_session_endtime $i)
 			(( boottime < timeend )) || return
 			if (( endtime > timestart )); then
-				echo "$boottime,$endtime"
+				local outputstring="$boottime,$endtime"
+				file_session_failed $i && outputstring+='*'
+				echo "$outputstring"
 			fi
 		done
 		boottime=$(file_session_boottime $i)
@@ -322,12 +347,12 @@ function output_summary_table {
 		local endtime=$(file_session_endtime $i)
 		(( boottime < timeend )) || return
 		if (( endtime > timestart )); then
-			echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "$(_conv_date_opt $endtime)" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+			echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "$(_conv_date_opt $endtime)" $2)   $(_pad "$(file_session_failed $i && echo '*')" $3)   $(_conv_time_opt $(file_session_uptime $i) s)"
 		fi
 	done
 	local boottime=$(file_session_boottime $i)
 	if (( boottime < timeend )); then
-		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "" $2)   $(_conv_time_opt $(file_session_uptime $i) s)"
+		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "" $2)   $(_pad "" $3)   $(_conv_time_opt $(file_session_uptime $i) s)"
 	fi
 }
 #output relative state lengths
@@ -495,12 +520,15 @@ reset)
 auto)
 	interval=$(echo "$otherparams" | sed "s/.* \([^ ]*\)\$/\1/")
 	if (( interval > 0 ));  then
+		trap file_fail_unset EXIT
 		while true; do
 			file_update_uptime
+			file_prepare
+			file_fail_set
 			sleep $interval
 		done
 	else
-		echo "ERROR: Invalid interval specified - $interval" >&2
+		echo "ERROR: Invalid interval specified" >&2
 		exit 2
 	fi
 	;;
@@ -516,9 +544,10 @@ summary)
 	esac
 	id_width=5
 	time_width=21
+	fail_width=4
 	if _check_file; then
-		echo -e " $(_pad id $id_width) | $(_pad 'boot time' $time_width) | $(_pad 'shutdown time' $time_width) | uptime"
-		output_summary_table $id_width $time_width
+		echo -e " $(_pad id $id_width) | $(_pad 'boot time' $time_width) | $(_pad 'shutdown time' $time_width) | $(_pad 'fail' $fail_width) | uptime"
+		output_summary_table $id_width $time_width $fail_width
 		echo
 		echo "Last update: $(output_end_time)"
 		echo "     Uptime: $(output_uptime) - $(output_uptime p)%"

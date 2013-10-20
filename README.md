@@ -71,6 +71,7 @@ in the raw output format.
 * 'all-data' will output all the data available, displaying the boot time, end
   time and fail status for each session in the UNIX seconds format. Each
   session is on its own line, and each line takes the format 'boottime,endtime'
+  with a '*' appended if this session encountered a power failure.
 * 'state' will output the relative time spent in the up or down state. Output
   starts with the initial state (the state for the first time), on one line.
   The next line contains the time spent in the initial state. The following
