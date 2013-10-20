@@ -36,3 +36,25 @@ Usage
       all-data        return array of boottime,shutdowntime separated by newline
       summary         return table of all information, in a human readable format
       state           print relative state changes (useful for graphing)
+
+Options
+-------
+
+### Output format ###
+
+The output format of many of the commands can be set to natural
+(human-readable dates/times), raw (UNIX seconds) or percentage. Some commands
+only accept some of the available formats. The default is raw, except for the
+'summary' command, which uses the natural format.
+
+* 'start-time' will only output in the natural and raw formats
+* 'end-time' will only output in the natural and raw formats
+* 'downtime' will output in all formats
+* 'uptime' will output in all formats
+* 'summary' will only output in the natural and raw formats
+
+### Time range ###
+
+The time range for the output to show defaults to the first recorded time and
+the latest update time, for the start and end respectively. However, this can
+be set by the --time-start and --time-end options.
