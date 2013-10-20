@@ -300,16 +300,19 @@ function display_help {
 	echo "      --time-end=[time]    only use entries older than [time]" >&2
 	echo >&2
 	echo "Commands:" >&2
-	echo "  update          update uptime file with latest information" >&2
-	echo "  reset           clear downtime data and restart uptime counter" >&2
-	echo "  auto [n]        run forever, updating automatically every [n] seconds" >&2
-	echo "  start-time      return first recorded boot time" >&2
-	echo "  end-time        return last recorded update time" >&2
-	echo "  downtime        return downtime since first recorded boot" >&2
-	echo "  uptime          return uptime since first recorded boot" >&2
-	echo "  all-data        return array of boottime,shutdowntime separated by newline" >&2
-	echo "  summary         return table of all information, in a human readable format" >&2
-	echo "  state           print relative state changes (useful for graphing)" >&2
+	echo "  update        update uptime file with latest information" >&2
+	echo "  reset         clear downtime data and restart uptime counter" >&2
+	echo "  auto [n]      run forever, updating automatically every [n] seconds" >&2
+	echo "  start-time    print first recorded boot time" >&2
+	echo "  end-time      print last recorded update time" >&2
+	echo "  downtime      print downtime since first recorded boot" >&2
+	echo "  uptime        print uptime since first recorded boot" >&2
+	echo "  summary       print table of all information, in a human readable format" >&2
+	echo "  raw <format>  print raw data, in one of the available formats - see README.md" >&2
+	echo >&2
+	echo "Raw formats:" >&2
+	echo "  all-data      all available data for each session" >&2
+	echo "  state         relative time spent in each state" >&2
 }
 #output full data table
 function output_summary_table {
@@ -485,10 +488,6 @@ uptime)
 	file_prepare
 	output_uptime
 	;;
-all-data)
-	file_prepare
-	output_all_data
-	;;
 reset)
 	> "$uptimefile"
 	file_update_uptime
@@ -529,14 +528,22 @@ summary)
 		exit 3
 	fi
 	;;
-state)
+raw)
 	file_prepare
-	case "$outputformat" in
-	n)
-		outputformat="r"
+	subcommand=$(sed "s/.* \([^ ]*\)\$/\1/" <<< "$otherparams")
+	case "$subcommand" in
+	all-data)
+		output_all_data
+		;;
+	state)
+		[[ $outputformat == "n" ]] && outputformat="r"
+		output_state
+		;;
+	*)
+		echo "ERROR: Invalid raw format specified" >&2
+		exit 2
 		;;
 	esac
-	output_state
 	;;
 "")
 	echo "ERROR: No command specified - try --help" >&2
