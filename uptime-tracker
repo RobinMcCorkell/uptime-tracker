@@ -571,8 +571,8 @@ summary)
 		outputformat="r"
 		;;
 	esac
-	id_width=5
-	time_width=21
+	id_width=4
+	time_width=20
 	fail_width=4
 	if _check_file; then
 		echo -e " $(_pad id $id_width) | $(_pad 'boot time' $time_width) | $(_pad 'shutdown time' $time_width) | $(_pad 'fail' $fail_width) | uptime"

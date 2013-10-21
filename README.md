@@ -15,7 +15,7 @@ shutdown.
 Usage
 -----
 
-    Usage: $0 [options] command
+    Usage: uptime-tracker [options] command [<parameters>]
 
     Options:
       -n, --natural            default, output in full date format
