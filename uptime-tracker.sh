@@ -264,6 +264,11 @@ function output_all_data {
 	[[ $1 ]] && outputformat=$1
 	if _check_file; then
 		local entry_count=$(file_session_count)
+		local current_session=true
+		if (( $(session_boottime) > $(file_session_endtime $entry_count) ));  then
+			(( ++entry_count ))
+			current_session=false
+		fi
 		for (( i = 1; i < $entry_count; ++i)); do
 			local boottime=$(file_session_boottime $i)
 			local endtime=$(file_session_endtime $i)
@@ -274,9 +279,11 @@ function output_all_data {
 				echo "$outputstring"
 			fi
 		done
-		boottime=$(file_session_boottime $i)
-		if (( boottime < timeend )); then
-			echo $boottime
+		if $current_session; then
+			boottime=$(file_session_boottime $i)
+			if (( boottime < timeend )); then
+				echo $boottime
+			fi
 		fi
 	else
 		_no_data
@@ -342,6 +349,11 @@ function display_help {
 #output full data table
 function output_summary_table {
 	local entry_count=$(file_session_count)
+	local current_session=true
+	if (( $(session_boottime) > $(file_session_endtime $entry_count) ));  then
+		(( ++entry_count ))
+		current_session=false
+	fi
 	for (( i = 1; i < $entry_count; ++i )); do
 		local boottime=$(file_session_boottime $i)
 		local endtime=$(file_session_endtime $i)
@@ -350,9 +362,11 @@ function output_summary_table {
 			echo -e " $(_pad $i $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "$(_conv_date_opt $endtime)" $2)   $(_pad "$(file_session_failed $i && echo '*')" $3)   $(_conv_time_opt $(file_session_uptime $i) s)"
 		fi
 	done
-	local boottime=$(file_session_boottime $i)
-	if (( boottime < timeend )); then
-		echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "" $2)   $(_pad "" $3)   $(_conv_time_opt $(file_session_uptime $i) s)"
+	if $current_session; then
+		local boottime=$(file_session_boottime $i)
+		if (( boottime < timeend )); then
+			echo -e " $(_pad cur $1)   $(_pad "$(_conv_date_opt $boottime)" $2)   $(_pad "" $2)   $(_pad "" $3)   $(_conv_time_opt $(file_session_uptime $i) s)"
+		fi
 	fi
 }
 #output relative state lengths
