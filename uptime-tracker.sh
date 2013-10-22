@@ -27,7 +27,7 @@ uptimefile="/var/spool/uptime-tracker/records"
 filecontents=""
 command=""
 outputformat="d"
-otherparams=""
+otherparams=( )
 optionhelp=false
 readoptions=true
 timestart="d"
@@ -495,8 +495,7 @@ function parse_command {
 	command=$1
 }
 function parse_other {
-	if [[ $otherparams ]]; then otherparams="$otherparams $1"
-	else otherparams="$1"; fi
+	otherparams+=( "$1" )
 }
 
 ###################
@@ -524,7 +523,7 @@ fi
 ###################
 case "$command" in
 #debug-command)
-#	eval "$otherparams"
+#	eval "${otherparams[@]}"
 #	;;
 update)
 	file_update_uptime
@@ -550,7 +549,7 @@ reset)
 	file_update_uptime
 	;;
 auto)
-	interval=$(echo "$otherparams" | sed "s/.* \([^ ]*\)\$/\1/")
+	interval=${otherparams[0]}
 	if (( interval > 0 ));  then
 		trap file_fail_unset EXIT
 		while true; do
@@ -591,7 +590,7 @@ summary)
 	;;
 raw)
 	file_prepare
-	subcommand=$(sed "s/^\([^ ]*\).*/\1/" <<< "$otherparams")
+	subcommand=${otherparams[0]}
 	case "$subcommand" in
 	all-data)
 		output_all_data
@@ -608,10 +607,10 @@ raw)
 	;;
 reason)
 	file_prepare
-	subcommand=$(sed "s/^\([^ ]*\).*/\1/" <<< "$otherparams")
+	subcommand=${otherparams[0]}
 	case "$subcommand" in
 	get)
-		session_id=$(sed "s/^[^ ]* \([^ ]*\).*/\1/" <<< "$otherparams")
+		session_id=${otherparams[1]}
 		entry_count=$(file_session_count)
 		if (( session_id > 0 )) && (( session_id <= entry_count )); then
 			file_reason_get $session_id
@@ -621,8 +620,8 @@ reason)
 		fi
 		;;
 	set)
-		session_id=$(sed "s/^[^ ]* \([^ ]*\).*/\1/" <<< "$otherparams")
-		string=$(sed "s/^[^ ]* [^ ]* \(.*\)/\1/" <<< "$otherparams")
+		session_id=${otherparams[1]}
+		string=${otherparams[2]}
 		entry_count=$(file_session_count)
 		if (( session_id > 0 )) && (( session_id <= entry_count )) && [[ $string ]]; then
 			file_reason_set $session_id "$string"
