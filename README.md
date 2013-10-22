@@ -18,8 +18,8 @@ Usage
     Usage: $0 [options] command
 
     Options:
-      -n, --natural            output in full date format
-      -r, --raw                default, output in UNIX timestamp
+      -n, --natural            default, output in full date format
+      -r, --raw                output in UNIX timestamp
       -p, --percent            output downtime as percentage
           --file=[file]        store uptime data in [file]
           --time-start=[time]  only use entries newer than [time]
@@ -52,8 +52,7 @@ Options
 
 The output format of many of the commands can be set to natural
 (human-readable dates/times), raw (UNIX seconds) or percentage. Some commands
-only accept some of the available formats. The default is raw, except for the
-'summary' command, which uses the natural format.
+only accept some of the available formats. The default is natural.
 
 * 'start-time' will only output in the natural and raw formats
 * 'end-time' will only output in the natural and raw formats
@@ -70,8 +69,8 @@ be set by the --time-start and --time-end options.
 
 ### Raw formats ###
 
-The 'raw' command requires a raw format to be specified. These formats are all
-in the raw output format.
+The 'raw' command requires a raw format to be specified. Many of these formats
+will only output in the raw output format, but some may implement others.
 
 * 'all-data' will output all the data available, displaying the boot time, end
   time and fail status for each session in the UNIX seconds format. Each

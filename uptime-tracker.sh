@@ -226,6 +226,7 @@ function file_prepare {
 	#Set some defaults
 	[[ $timestart == "d" ]] && timestart=$(file_session_boottime 1)
 	[[ $timeend == "d" ]] && timeend=$(file_session_endtime $(file_session_count))
+	[[ $outputformat == "d" ]] && outputformat="n"
 }
 #get reason for session $1
 function file_reason_get {
@@ -337,8 +338,8 @@ function display_help {
 	echo "Usage: $0 [options] command" >&2
 	echo >&2
 	echo "Options: " >&2
-	echo "  -n, --natural            output in full date format" >&2
-	echo "  -r, --raw                default, output in UNIX timestamp" >&2
+	echo "  -n, --natural            default, output in full date format" >&2
+	echo "  -r, --raw                output in UNIX timestamp" >&2
 	echo "  -p, --percent            output downtime as percentage" >&2
 	echo "      --file=[file]        store uptime data in [file]" >&2
 	echo "      --time-start=[time]  only use entries newer than [time]" >&2
@@ -568,9 +569,6 @@ summary)
 	case "$outputformat" in
 	p)
 		outputformat="r"
-		;;
-	d)
-		outputformat="n"
 		;;
 	esac
 	id_width=5
