@@ -35,10 +35,15 @@ Usage
       uptime        print uptime since first recorded boot
       summary       print table of all information, in a human readable format
       raw <format>  print raw data, in one of the available formats
+      reason <cmd>  manage reasons for shutdowns
 
     Raw formats:
       all-data      all available data for each session
       state         relative time spent in each state
+    
+	Reasons:
+	  get <id>       get reason for session <id>
+      set <id> <str> set reason for session <id> to <str>
 
 Options
 -------
@@ -81,3 +86,14 @@ in the raw output format.
   times are the number of seconds in each state, or the percentage output
   format, where the relative times are a percentage of the time for the entire
   listing.
+
+### Reasons ###
+
+The 'reason' command can be used to specify reasons for shutdowns. Although
+this has no effect on the output of the other commands, it provides a useful
+means of 'tagging' a particular session with a message.
+
+* 'get' will output the reason attached to a particular session, specified by
+  the first parameter passed to it
+* 'set' will set the reason for a session. The session ID is specified by the
+  first parameter, and the second parameter specifies the string to be attached

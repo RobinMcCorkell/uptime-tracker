@@ -154,7 +154,7 @@ function file_session_endtime {
 function file_session_failed {
 	local ret=false
 	if [[ $1 ]]; then
-		local uptime_line=$(sed "$(( $1 * 2 ))q;d" <<< "$filecontents")
+		local uptime_line=$(sed "$(( $1 * 2 )) { s/^\([^ ]*\).*/\1/; q };d" <<< "$filecontents")
 		if [[ ${uptime_line:$(( ${#uptime_line} - 1 )):1} == "*" ]]; then
 			ret=true
 		fi
@@ -226,6 +226,19 @@ function file_prepare {
 	#Set some defaults
 	[[ $timestart == "d" ]] && timestart=$(file_session_boottime 1)
 	[[ $timeend == "d" ]] && timeend=$(file_session_endtime $(file_session_count))
+}
+#get reason for session $1
+function file_reason_get {
+	if [[ $1 ]]; then
+		sed "$(( $1 * 2 )) { s/^[^ ]* \?//; q }; d" <<< "$filecontents"
+	fi
+}
+#set reason for session $1 to $2
+function file_reason_set {
+	if [[ $1 ]] && [[ $2 ]]; then
+		#Don't question the regex - I could have used ${2//\//\\\/} instead!
+		sed -i "$(( $1 * 2 )) { s/ .*//; s@\$@ ${2//@/\\@}@ }" "$uptimefile"
+	fi
 }
 
 ###################
@@ -341,10 +354,15 @@ function display_help {
 	echo "  uptime        print uptime since first recorded boot" >&2
 	echo "  summary       print table of all information, in a human readable format" >&2
 	echo "  raw <format>  print raw data, in one of the available formats - see README.md" >&2
+	echo "  reason <cmd>  manage reasons for shutdowns" >&2
 	echo >&2
 	echo "Raw formats:" >&2
 	echo "  all-data      all available data for each session" >&2
 	echo "  state         relative time spent in each state" >&2
+	echo >&2
+	echo "Reasons:" >&2
+	echo "  get <id>       get reason for session <id>" >&2
+	echo "  set <id> <str> set reason for session <id> to <str>" >&2
 }
 #output full data table
 function output_summary_table {
@@ -573,7 +591,7 @@ summary)
 	;;
 raw)
 	file_prepare
-	subcommand=$(sed "s/.* \([^ ]*\)\$/\1/" <<< "$otherparams")
+	subcommand=$(sed "s/^\([^ ]*\).*/\1/" <<< "$otherparams")
 	case "$subcommand" in
 	all-data)
 		output_all_data
@@ -584,6 +602,37 @@ raw)
 		;;
 	*)
 		echo "ERROR: Invalid raw format specified" >&2
+		exit 2
+		;;
+	esac
+	;;
+reason)
+	file_prepare
+	subcommand=$(sed "s/^\([^ ]*\).*/\1/" <<< "$otherparams")
+	case "$subcommand" in
+	get)
+		session_id=$(sed "s/^[^ ]* \([^ ]*\).*/\1/" <<< "$otherparams")
+		entry_count=$(file_session_count)
+		if (( session_id > 0 )) && (( session_id <= entry_count )); then
+			file_reason_get $session_id
+		else
+			echo "ERROR: Invalid session ID" >&2
+			exit 2
+		fi
+		;;
+	set)
+		session_id=$(sed "s/^[^ ]* \([^ ]*\).*/\1/" <<< "$otherparams")
+		string=$(sed "s/^[^ ]* [^ ]* \(.*\)/\1/" <<< "$otherparams")
+		entry_count=$(file_session_count)
+		if (( session_id > 0 )) && (( session_id <= entry_count )) && [[ $string ]]; then
+			file_reason_set $session_id "$string"
+		else
+			echo "ERROR: Invalid session ID or missing string" >&2
+			exit 2
+		fi
+		;;
+	*)
+		echo "ERROR: Invalid reason command" >&2
 		exit 2
 		;;
 	esac
