@@ -1,0 +1,11 @@
+[Unit]
+Description=Uptime Tracker
+
+[Service]
+Environment="interval=5"
+EnvironmentFile=/etc/conf.d/uptime-tracker
+Type=simple
+ExecStart=/usr/bin/uptime-tracker auto $interval -- $opts
+
+[Install]
+WantedBy=basic.target
