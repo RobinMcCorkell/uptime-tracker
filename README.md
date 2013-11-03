@@ -1,7 +1,7 @@
 Uptime Tracker
 ==============
 
-An uptime tracker for Linux systems, version 2.8
+An uptime tracker for Linux systems, version 3.0
 
 Copyright (c) 2012-2013 Robin McCorkell
 
